@@ -1,0 +1,62 @@
+name: Build CB1 engine and patched FFmpeg
+
+# Builds the three things CB1 needs, in the only order that works:
+#   1. libplacebo at the pinned revision (e2972fd) with the 20 CB1 patches applied;
+#   2. FFmpeg 9.0 with the CB1 patches, which add the dvbridge_* fields to
+#      libavutil/dovi_meta.h and the RPU/ISOM/TS handling around them;
+#   3. the CB1 engine (dvbridge_core) itself, linked against both.
+#
+# CB1/CMakeLists.txt aborts with "Matched modified FFmpeg metadata headers required"
+# unless step 2 is done first, so this ordering is not a preference. Both sources are
+# pinned by SHA256 in scripts/build-cb1.sh, taken from CB1/config/dependencies.json.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'CB1/**'
+      - 'scripts/**'
+      - '.github/workflows/build-cb1.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'CB1/**'
+      - 'scripts/**'
+      - '.github/workflows/build-cb1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Engine + patched FFmpeg (linux-x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake meson ninja-build pkg-config nasm yasm \
+            libvulkan-dev glslang-dev liblcms2-dev libxxhash-dev libunwind-dev \
+            python3-jinja2 libdrm-dev libegl-dev libgles-dev libva-dev
+          # libplacebo can use libdovi when present; not all images carry it.
+          sudo apt-get install -y --no-install-recommends libdovi-dev \
+            || echo "libdovi-dev unavailable, libplacebo will build without it"
+
+      - name: Build (pinned sources, patches, engine)
+        run: JOBS="$(nproc)" bash scripts/build-cb1.sh .build
+
+      - name: Show what was verified
+        run: |
+          cat out/SHA256SUMS || true
+          ls -la out out/bin out/lib out/include 2>/dev/null || true
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cb1-engine-linux-x64
+          path: out/
+          if-no-files-found: error

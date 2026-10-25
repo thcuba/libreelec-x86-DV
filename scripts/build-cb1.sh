@@ -139,6 +139,19 @@ else
 fi
 
 # ---------------------------------------------------------------- libplacebo
+# libplacebo looks for Vulkan headers inside 3rdparty/Vulkan-Headers and needs >= 1.4
+# (VK_VERSION_1_4); Debian 12 ships 1.3.239, which makes meson abort with
+# "Feature vulkan cannot be disabled: vulkan.h was not found on the system, nor inside
+# 3rdparty/Vulkan-Headers". Upstream keeps them as a git submodule, absent from the archive.
+VK_HEADERS="${WORK}/libplacebo-${LIBPLACEBO_REV}/3rdparty/Vulkan-Headers"
+if [ ! -f "${VK_HEADERS}/include/vulkan/vulkan_core.h" ]; then
+  log "fetching Vulkan-Headers into 3rdparty (libplacebo needs >= 1.4)"
+  rm -rf "$VK_HEADERS"
+  git clone --depth 1 --quiet https://github.com/KhronosGroup/Vulkan-Headers.git "$VK_HEADERS"
+fi
+grep -m1 "VK_VERSION_1_4" "${VK_HEADERS}/include/vulkan/vulkan_core.h" >/dev/null \
+  && echo "Vulkan-Headers: 1.4+ present"
+
 log "building patched libplacebo"
 cd "libplacebo-${LIBPLACEBO_REV}"
 # Check for build.ninja, not for the directory: a directory left behind by a failed meson

@@ -23,6 +23,10 @@ esac
 mkdir -p "$WORK"
 WORK="$(cd "$WORK" && pwd)"
 OUT="${REPO_ROOT}/out"
+# meson/autotools on Debian install into lib/<triplet>, so both pkg-config lookups and packaging
+# must discover the actual directories instead of assuming ${PREFIX}/lib.
+prefix_pc_path() { find "$PREFIX" -type d -name pkgconfig -print 2>/dev/null | tr '\n' ':'; }
+prefix_has() { find "$PREFIX" -name "$1" -print -quit 2>/dev/null | grep -q .; }
 CB1="${REPO_ROOT}/CB1"
 
 FFMPEG_VER="9.0"
@@ -163,7 +167,7 @@ if [ ! -f build/build.ninja ]; then
     -Dvulkan=enabled -Dopengl=enabled -Dglslang=enabled \
     -Ddemos=false -Dtests=false
 fi
-if [ -f "${PREFIX}/lib/libplacebo.so" ]; then
+if prefix_has 'libplacebo.so*'; then
   echo "libplacebo already installed in prefix, skipping the build"
 else
   ninja -C build -j"$JOBS"
@@ -174,7 +178,7 @@ fi
 log "building patched FFmpeg (minimal: the DV metadata path, not a media player)"
 cd "${WORK}/ffmpeg-${FFMPEG_VER}"
 if [ ! -f config.h ]; then
-  PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig" ./configure \
+  PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH}" ./configure \
     --prefix="$PREFIX" \
     --disable-doc --disable-network --disable-autodetect --disable-debug \
     --disable-programs --enable-ffprobe \
@@ -195,7 +199,7 @@ log "building CB1 (dvbridge_core)"
 # CB1/src/CMakeLists.txt resolves its dependencies with pkg_check_modules
 # (libplacebo>=7.372.0, libavutil>=59.12.100, libavcodec>=62, glesv2, egl, libdrm, libva), so the
 # prefix built here has to be visible to pkg-config or it would look at the system libraries.
-PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" \
+PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH}" \
 cmake -S "$CB1" -B "${WORK}/cb1-build" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$PREFIX"
@@ -228,8 +232,9 @@ echo "CB1 engine artefacts:"; echo "$engine_lib"
 log "packaging artefacts into out/"
 mkdir -p "$OUT/include" "$OUT/lib" "$OUT/bin"
 cp -a "${PREFIX}/bin/ffprobe" "$OUT/bin/" 2>/dev/null || true
-cp -a "${PREFIX}/lib/"libavutil* "$PREFIX/lib/"libavcodec* "$PREFIX/lib/"libavformat* \
-      "$PREFIX/lib/"libswscale* "$OUT/lib/" 2>/dev/null || true
+find "$PREFIX" \( -name 'libavutil*' -o -name 'libavcodec*' -o -name 'libavformat*' \
+     -o -name 'libswscale*' -o -name 'libplacebo*' \) -type f \
+     -exec cp -a {} "$OUT/lib/" \; 2>/dev/null || true
 cp -a "${PREFIX}/include/"libavutil "$PREFIX/include/"libavcodec "$PREFIX/include/"libavformat \
       "$OUT/include/" 2>/dev/null || true
 cp -a "${WORK}/cb1-build"/*.a "$OUT/lib/" 2>/dev/null || true

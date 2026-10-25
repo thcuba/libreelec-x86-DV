@@ -141,7 +141,11 @@ fi
 # ---------------------------------------------------------------- libplacebo
 log "building patched libplacebo"
 cd "libplacebo-${LIBPLACEBO_REV}"
-if [ ! -d build ]; then
+# Check for build.ninja, not for the directory: a directory left behind by a failed meson
+# setup exists but has no build.ninja, and ninja then dies with
+# "ninja: error: loading 'build.ninja': No such file or directory".
+if [ ! -f build/build.ninja ]; then
+  rm -rf build
   meson setup build --buildtype=release --prefix="$PREFIX" \
     -Dvulkan=enabled -Dopengl=enabled -Dglslang=enabled \
     -Ddemos=false -Dtests=false

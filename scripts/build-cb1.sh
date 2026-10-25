@@ -53,6 +53,22 @@ verify_digest() {   # verify_digest <file> <expected|empty>
 
 mkdir -p "$WORK" "$OUT" "$PREFIX"
 
+# libplacebo generates its OpenGL loader at build time and looks for the "glad" Python
+# module (>= 2.0) before anything else:
+#   run_command([python, '-c', 'import glad; print(glad.__version__)'])
+# The GitHub source archive does not carry it because upstream keeps glad as a git submodule,
+# so without this libplacebo fails at meson setup with
+#   "glad (required: >= 2.0, found: none) was not found in PYTHONPATH or 3rdparty".
+if ! python3 -c 'import glad' >/dev/null 2>&1; then
+  log "installing the glad generator (required by libplacebo's meson setup)"
+  python3 -m pip install --quiet --break-system-packages glad2 2>/dev/null \
+    || python3 -m pip install --quiet glad2
+fi
+python3 -c 'import glad; print("glad", glad.__version__)' || {
+  echo "ERROR: the glad Python module is required by libplacebo" >&2
+  exit 1
+}
+
 # ---------------------------------------------------------------- sources
 cd "$WORK"
 if [ ! -f "ffmpeg-${FFMPEG_VER}.tar.xz" ]; then

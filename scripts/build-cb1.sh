@@ -163,8 +163,12 @@ if [ ! -f build/build.ninja ]; then
     -Dvulkan=enabled -Dopengl=enabled -Dglslang=enabled \
     -Ddemos=false -Dtests=false
 fi
-ninja -C build -j"$JOBS"
-ninja -C build install
+if [ -f "${PREFIX}/lib/libplacebo.so" ]; then
+  echo "libplacebo already installed in prefix, skipping the build"
+else
+  ninja -C build -j"$JOBS"
+  ninja -C build install
+fi
 
 # ---------------------------------------------------------------- ffmpeg
 log "building patched FFmpeg (minimal: the DV metadata path, not a media player)"
@@ -179,11 +183,19 @@ if [ ! -f config.h ]; then
     --enable-demuxer=mov,matroska,mpegts --enable-protocol=file \
     --enable-filter=null --enable-swscale
 fi
-make -j"$JOBS"
-make install
+if [ -x "${PREFIX}/bin/ffprobe" ]; then
+  echo "FFmpeg already installed in prefix, skipping the build"
+else
+  make -j"$JOBS"
+  make install
+fi
 
 # ---------------------------------------------------------------- CB1 engine
 log "building CB1 (dvbridge_core)"
+# CB1/src/CMakeLists.txt resolves its dependencies with pkg_check_modules
+# (libplacebo>=7.372.0, libavutil>=59.12.100, libavcodec>=62, glesv2, egl, libdrm, libva), so the
+# prefix built here has to be visible to pkg-config or it would look at the system libraries.
+PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" \
 cmake -S "$CB1" -B "${WORK}/cb1-build" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$PREFIX"

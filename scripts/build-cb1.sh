@@ -14,6 +14,14 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="${1:-"${REPO_ROOT}/.build"}"
+# meson rejects a relative --prefix ("prefix value '.build/prefix' must be an absolute path"),
+# and CI passes ".build", so the work dir is normalised here instead of trusting the caller.
+case "$WORK" in
+  /*) ;;
+  *) WORK="${REPO_ROOT}/${WORK}" ;;
+esac
+mkdir -p "$WORK"
+WORK="$(cd "$WORK" && pwd)"
 OUT="${REPO_ROOT}/out"
 CB1="${REPO_ROOT}/CB1"
 

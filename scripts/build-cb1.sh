@@ -237,7 +237,10 @@ find "$PREFIX" \( -name 'libavutil*' -o -name 'libavcodec*' -o -name 'libavforma
      -exec cp -a {} "$OUT/lib/" \; 2>/dev/null || true
 cp -a "${PREFIX}/include/"libavutil "$PREFIX/include/"libavcodec "$PREFIX/include/"libavformat \
       "$OUT/include/" 2>/dev/null || true
-cp -a "${WORK}/cb1-build"/*.a "$OUT/lib/" 2>/dev/null || true
+# The engine library lands in a subdirectory of the build tree (cmake target dir), so search
+# the tree instead of assuming the top level.
+find "${WORK}/cb1-build" \( -name 'libdvbridge_core*' -o -name '*.a' \) -type f \
+     -exec cp -a {} "$OUT/lib/" \; 2>/dev/null || true
 cp -a "$CB1"/src/*.h "$OUT/include/" 2>/dev/null || true
 sha256sum "$OUT"/bin/* "$OUT"/lib/* >"$OUT/SHA256SUMS" 2>/dev/null || true
 ls -la "$OUT" "$OUT/bin" "$OUT/lib" | head -30

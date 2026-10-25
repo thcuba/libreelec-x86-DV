@@ -178,7 +178,7 @@ fi
 log "building patched FFmpeg (minimal: the DV metadata path, not a media player)"
 cd "${WORK}/ffmpeg-${FFMPEG_VER}"
 if [ ! -f config.h ]; then
-  PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH}" ./configure \
+  PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH:-}" ./configure \
     --prefix="$PREFIX" \
     --disable-doc --disable-network --disable-autodetect --disable-debug \
     --disable-programs --enable-ffprobe \
@@ -199,7 +199,7 @@ log "building CB1 (dvbridge_core)"
 # CB1/src/CMakeLists.txt resolves its dependencies with pkg_check_modules
 # (libplacebo>=7.372.0, libavutil>=59.12.100, libavcodec>=62, glesv2, egl, libdrm, libva), so the
 # prefix built here has to be visible to pkg-config or it would look at the system libraries.
-PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH}" \
+PKG_CONFIG_PATH="$(prefix_pc_path)${PKG_CONFIG_PATH:-}" \
 cmake -S "$CB1" -B "${WORK}/cb1-build" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$PREFIX"

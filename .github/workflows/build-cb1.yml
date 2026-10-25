@@ -12,6 +12,11 @@ name: Build CB1 engine and patched FFmpeg
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'CB1/**'
+      - 'scripts/**'
+      - '.github/workflows/build-cb1.yml'
   push:
     branches: [ main ]
     paths:

@@ -69,6 +69,27 @@ python3 -c 'import glad; print("glad", glad.__version__)' || {
   exit 1
 }
 
+# libplacebo requires meson >= 1.3.0 at setup time; Debian 12 ships 1.0.1, which fails with
+# "Meson version is 1.0.1 but project requires >=1.3.0". Ubuntu 24.04 (the CI image) has 1.3.2.
+meson_ok() {
+  python3 - <<'EOF' >/dev/null 2>&1
+import subprocess, sys
+out = subprocess.run(["meson", "--version"], capture_output=True, text=True).stdout.strip()
+parts = out.split(".")
+sys.exit(0 if len(parts) >= 2 and (int(parts[0]), int(parts[1])) >= (1, 3) else 1)
+EOF
+}
+if ! meson_ok; then
+  log "meson is older than 1.3 (libplacebo needs >=1.3.0): installing a newer one"
+  python3 -m pip install --quiet --break-system-packages -U 'meson>=1.3' 2>/dev/null \
+    || python3 -m pip install --quiet -U 'meson>=1.3'
+fi
+if ! meson_ok; then
+  echo "ERROR: meson >= 1.3.0 is required to build libplacebo" >&2
+  exit 1
+fi
+printf 'meson %s\n' "$(meson --version)"
+
 # ---------------------------------------------------------------- sources
 cd "$WORK"
 if [ ! -f "ffmpeg-${FFMPEG_VER}.tar.xz" ]; then
